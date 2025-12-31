@@ -30,7 +30,8 @@
 
 ### 1) 평상시 제어 모드 (Normal Operation Mode)
 ```mermaid
-flowchart LR
+%%{init: {"themeVariables": {"fontSize": "20px"}, "flowchart": {"useMaxWidth": false, "nodeSpacing": 90, "rankSpacing": 120, "diagramPadding": 20}}}%%
+flowchart TB
     %% 스타일 정의
     classDef pc fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:black;
     classDef mcu fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:black;
