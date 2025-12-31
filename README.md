@@ -30,7 +30,8 @@
 
 ### 1) 평상시 제어 모드 (Normal Operation Mode)
 ```mermaid
-%%{init: {"themeVariables": {"fontSize": "20px"}, "flowchart": {"useMaxWidth": false, "nodeSpacing": 90, "rankSpacing": 120, "diagramPadding": 20}}}%%
+%%{init: {"themeVariables": {"fontSize": "16px"}, "flowchart": {"useMaxWidth": true, "nodeSpacing": 55, "rankSpacing": 75, "diagramPadding": 10}}}%%
+flowchart TB
 flowchart TB
     %% 스타일 정의
     classDef pc fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:black;
@@ -87,7 +88,8 @@ flowchart TB
 ```
 ### 2) 긴급 복구 및 유지보수 모드 (Emergency & Maintenance Mode)
 ```mermaid
-%%{init: {"themeVariables": {"fontSize": "20px"}, "flowchart": {"useMaxWidth": false, "nodeSpacing": 90, "rankSpacing": 120, "diagramPadding": 20}}}%%
+%%{init: {"themeVariables": {"fontSize": "16px"}, "flowchart": {"useMaxWidth": true, "nodeSpacing": 55, "rankSpacing": 75, "diagramPadding": 10}}}%%
+flowchart TB
 flowchart TB
     %% 스타일 정의
     classDef pc fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:black;
