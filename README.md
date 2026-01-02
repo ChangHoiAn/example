@@ -105,7 +105,7 @@ flowchart TB
 
   SD --> MCU_SEND
   INFO --> MCU_SEND
-  MCU_SEND -->|USB Vendor IN (256B)| KRPI
+  MCU_SEND -->|USB Vendor IN 256B| KRPI
 
   MSC_OPT["MSC (optional)<br/>inspect/backup only"] -.-> SD
 
