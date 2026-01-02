@@ -10,15 +10,13 @@
 
 ## ✨ 한 줄 요약
 
-**MAIN Vendor + MSC**
+**MAIN (Vendor 256B + MSC Packet Store)**  
+PC(Qt App + Linux Kernel Driver) ↔ Black Pill(TinyUSB Composite: Vendor + MSC) ↔ Raspberry Pi(TurtleBot, Ubuntu Server) ↔ (Linux Kernel Driver) ↔ daemon
 
-PC(QT + Linux Kernel Driver) ↔ Black Pill(Tiny USB Composite: Vendor + MSC) ↔ Raspberry Pi(TurtleBot, Ubuntu Server) ↔ (Linux Kernel Driver) ↔ daemon
+**RECOVERY (UART Serial Console)**  
+PC(Terminal) ↔ Black Pill(CDC↔UART Bridge) ↔ Raspberry Pi(TurtleBot, Ubuntu Server) ↔ Shell(agetty)
 
-**Recovery: UART(Serial Console)**
-
-PC(QT + Linux Kernel Driver) ↔ Black Pill(CDC UART) ↔ Raspberry Pi(TurtleBot, Ubuntu Server) ↔ Shell(agetty)
-
-구조로 **명령 전달 / 파일 교환 / 네트워크 장애 대비 UART 긴급 루트**를 제공하는 프로젝트입니다.
+구조로 **명령 전달 / 256B 패킷 저장·회수(MSC) / 네트워크 장애 대비 UART 긴급 루트**를 제공하는 프로젝트입니다.
 
 > 핵심 포인트: **Vendor로 들어온 “256B 명령 패킷”을 커널 드라이버가 읽고/쓰게 만들고**, QT/daemon은 `/dev/*` 디바이스 파일로 간단히 접근합니다.
 
@@ -28,13 +26,39 @@ PC(QT + Linux Kernel Driver) ↔ Black Pill(CDC UART) ↔ Raspberry Pi(TurtleBot
 
 - TurtleBot(Raspberry Pi) 제어를 PC에서 **더 안정적이고 구조적으로** 수행
 - USB Vendor로 명령을 전달하고, Raspberry Pi의 daemon이 이를 파싱/실행하도록 구성
-- SSH가 끊기거나 네트워크가 불안정해도 **UART로 로그/쉘을 PC로 브릿지**하여 복구 가능
-- **MSC(USB Mass Storage)** 로 로그/스크립트/설정 파일을 교환하는 워크플로 지원(옵션)
+- 네트워크가 불안정해도 **UART로 로그/쉘을 PC로 브릿지**하여 복구 가능
+- **MSC(USB Mass Storage)** 를 **256B Vendor 패킷 저장/읽기(Packet Store)** 용도로 사용 (PC/RPi에서 mount)
 
 ---
 
 ## 🏛️ 시스템 아키텍처 (System Architecture)
 
+### Overview (한눈에)
+```mermaid
+%%{init: {"themeVariables": {"fontSize": "16px"}, "flowchart": {"useMaxWidth": true, "nodeSpacing": 45, "rankSpacing": 60, "diagramPadding": 8}}}%%
+flowchart LR
+    classDef pc fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:black;
+    classDef mcu fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:black;
+    classDef rpi fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:black;
+    classDef usb fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5,color:black;
+
+    PC[PC\nQt App + Kernel Driver\n/dev/custom_usb_pc]
+    MCU[Black Pill(STM32)\nTinyUSB Composite\nVendor + MSC(Packet Store)]
+    RPI[Raspberry Pi\nKernel Driver + daemon + ROS2\n/dev/custom_usb_rpi]
+
+    PC  <--> |Vendor (256B cmd/resp)| MCU
+    MCU <--> |Vendor (256B cmd/resp)| RPI
+
+    PC  -.-> |MSC mount: write 256B packets| MCU
+    RPI -.-> |MSC mount: read 256B packets| MCU
+
+    PC  -.-> |Recovery UART (CDC↔UART)| RPI
+
+    class PC pc;
+    class MCU mcu;
+    class RPI rpi;
+    class PC,MCU,RPI usb;
+```
 ### 1) 평상시 제어 모드 (Normal Operation Mode)
 ```mermaid
 %%{init: {"themeVariables": {"fontSize": "16px"}, "flowchart": {"useMaxWidth": true, "nodeSpacing": 55, "rankSpacing": 75, "diagramPadding": 10}}}%%
@@ -106,13 +130,13 @@ flowchart TB
     subgraph PC_Group [💻 PC ]
         direction TB
         TERM[**Terminal**\nPutty / Qt Terminal]
-        MSC_Drive[**MSC Drive**\nLog Storage]
+        MSC_Drive[**MSC Drive**\nPacket Store (256B)]
     end
 
     %% 2. Link PC-STM32
     subgraph USB_Link1 [Emergency Link]
         L_CDC[**CDC Interface**\nVirtual COM Port]
-        L_MSC[**MSC Interface**\nMass Storage]
+        L_MSC[**MSC Interface**\nPacket Store]
     end
 
     %% 3. STM32
@@ -120,7 +144,7 @@ flowchart TB
         direction TB
         subgraph Logic [Firmware Logic]
             FW_CDC[**CDC Logic**\nUART Bridge]
-            FW_MSC[**MSC Logic**\nSD Card I/O]
+            FW_MSC[**MSC Logic**\nPacket Store I/O]
         end
     end
 
