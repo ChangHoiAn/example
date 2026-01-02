@@ -16,7 +16,7 @@ PC(Qt App + Linux Kernel Driver) → Black Pill(TinyUSB: Vendor + MSC) → *(SD�
 **RECOVERY (Serial Console over CDC↔UART, Black Pill이 CDC 모드로 전환)**  
 PC(Terminal) ↔ Black Pill(CDC↔UART Bridge) ↔ Raspberry Pi(agetty) ↔ Shell(복구)
 
-> 핵심: **Vendor로 들어온 256B 명령 패킷을 STM32가 SD(512B 블록)에 저장**해두고,  
+> 핵심: **Vendor로 들어온 256Byte 명령 패킷을 STM32가 SD에 저장**해두고,  
 > **RPi가 연결되면 저장된 패킷을 Vendor로 다시 전송(ven_send)**하여 daemon이 실행합니다.  
 
 ---
@@ -26,7 +26,7 @@ PC(Terminal) ↔ Black Pill(CDC↔UART Bridge) ↔ Raspberry Pi(agetty) ↔ Shel
 - **/dev 기반 제어**: libusb 없이 `read/write/poll`로 단순 제어
 - **256B 고정 프레임**: 프레임 경계/검증이 단순
 - **Store-and-Forward**: PC에서 미리 패킷을 적재 → 케이블을 RPi로 옮긴 뒤 실행
-- **SD Packet Store**: Vendor로 받은 256B를 SD에 저장(블록 512B 단위 기록)
+- **SD Packet Store**: Vendor로 받은 256Byte를 SD에 저장(블록 512Byte 단위 기록)
 - **MSC(옵션)**: 저장된 내용을 파일/블록 단위로 확인·백업하고 싶을 때만 mount
 - **Recovery UART Console**: 네트워크 불가 시에도 CDC↔UART로 시리얼 콘솔(agetty) 확보  
   *(Recovery 시 Black Pill이 CDC 모드로 동작)*
@@ -48,8 +48,8 @@ flowchart LR
   MCU["Black Pill (STM32)<br/>TinyUSB Composite<br/>Vendor + MSC<br/>SD Packet Store"]
   RPI["Raspberry Pi<br/>Kernel Driver + daemon + ROS2<br/>/dev/custom_usb_rpi"]
 
-  PC  --> |Vendor: STORE 256B frames| MCU
-  MCU --> |Vendor: 256B frames| RPI
+  PC  --> |Vendor: STORE 256Byte frames| MCU
+  MCU --> |Vendor: 256Byte frames| RPI
 
   PC  -.-> |Recovery: MCU switches to CDC| MCU
   MCU -.-> |CDC↔UART bridge| RPI
@@ -78,15 +78,15 @@ flowchart TB
     direction TB
     QT["Qt App<br/>Command Builder"]
     KPC["Linux Kernel Driver<br/>/dev/custom_usb_pc"]
-    QT -->|write 256B packet| KPC
+    QT -->|write 256Byte packet| KPC
   end
 
   subgraph MCU_Group ["Black Pill"]
     direction TB
-    VEN_RX["USB Vendor RX<br/>256B packet assemble"]
+    VEN_RX["USB Vendor RX<br/>256Byte packet assemble"]
     SDSTORE["SD Packet Store<br/>store packets"]
     META["Packet Count / Meta"]
-    VEN_RX -->|save 256B packet| SDSTORE
+    VEN_RX -->|save 256Byte packet| SDSTORE
     VEN_RX -->|update count| META
   end
 
@@ -95,7 +95,7 @@ flowchart TB
     KRPI["Linux Kernel Driver<br/>/dev/custom_usb_rpi"]
     DAEMON["daemon<br/>Parse + Execute S/D/C"]
     ROS2["ROS2 / System Commands"]
-    KRPI -->|read 256B packet| DAEMON
+    KRPI -->|read 256Byte packet| DAEMON
     DAEMON --> ROS2
   end
 
@@ -104,7 +104,7 @@ flowchart TB
   RPI_REQ["RPi Request<br/>FETCH stored packets"] --> MCU_TX["USB Vendor TX<br/>send stored packets"]
   SDSTORE --> MCU_TX
   META --> MCU_TX
-  MCU_TX -->|USB Vendor IN 256B| KRPI
+  MCU_TX -->|USB Vendor IN 256Byte| KRPI
 
   class QT,KPC pc;
   class VEN_RX,MCU_TX,MCU_Group mcu;
@@ -116,8 +116,8 @@ flowchart TB
 **How it works (Normal)**
 
 - **PC → STM32 저장(Store)**  
-  - `tud_vendor_rx_cb()`에서 **조각난 Vendor RX**를 `g_accum_buf`에 합쳐 **256B(VENPACK_SIZE)**가 되면 패킷 완성  
-  - `SD_Write_DMA_Async(g_ven_header++, g_accum_buf, 1)`로 **SD에 1블록(512B) 저장**  
+  - `tud_vendor_rx_cb()`에서 **조각난 Vendor RX**를 `g_accum_buf`에 합쳐 **256Byte(VENPACK_SIZE)**가 되면 패킷 완성  
+  - `SD_Write_DMA_Async(g_ven_header++, g_accum_buf, 1)`로 **SD에 1블록(512Byte) 저장**  
   - `vendor_info_update(count)`로 **info 블록(g_ven_info_addr)에 저장된 개수(cmd_len)** 갱신
 
 - **RPi → STM32 요청(Fetch) → RPi 실행(Execute)**  
@@ -179,19 +179,19 @@ flowchart TB
 ## 🧱 구성 요소 (Components)
 
 ### 1) PC (Qt App)
-- `/dev/custom_usb_pc`로 256B 패킷 **전송(Store)**  
+- `/dev/custom_usb_pc`로 256Byte 패킷 **전송(Store)**  
 - (선택) MSC를 mount해 **저장된 내용 확인/백업** (운영 필수 아님)
 
 ### 2) STM32 / Black Pill (Firmware)
 - TinyUSB Composite: **Vendor + MSC**, (Recovery 시) **CDC + MSC**
-- Vendor RX: `tud_vendor_rx_cb()`에서 256B 패킷 조립 후 **SD 저장**
+- Vendor RX: `tud_vendor_rx_cb()`에서 256Byte 패킷 조립 후 **SD 저장**
 - Vendor TX: `ven_send()`가 SD에서 읽어 **Vendor로 재전송**
 - SD 메타: `vendor_info_update()`가 **info 블록에 저장 개수(cmd_len)** 저장
 - MSC: 동일 SD를 호스트에 노출(점검/백업용)
 - CDC: Recovery에서 USB CDC ↔ UART 브릿지
 
 ### 3) Raspberry Pi + daemon
-- `/dev/custom_usb_rpi`로 들어온 256B 프레임을 daemon이 읽고 실행
+- `/dev/custom_usb_rpi`로 들어온 256Byte 프레임을 daemon이 읽고 실행
 - daemon이 `S/D/C`로 파싱 후 실행(ROS2 포함)
 - Recovery에서는 agetty를 통해 시리얼 콘솔 제공
 
@@ -214,9 +214,9 @@ sequenceDiagram
   participant Daemon as RPi daemon
 
   User->>Qt: Build/queue commands
-  Qt->>KPC: write(256B)
+  Qt->>KPC: write(256Byte)
   KPC->>STM32: Vendor OUT (URB)
-  STM32->>STM32: reassemble → SD_Write_DMA_Async(512B block)
+  STM32->>STM32: reassemble → SD_Write_DMA_Async(512Byte block)
   STM32->>STM32: vendor_info_update(stored count)
 
   Note over User,STM32: USB 호스트를 PC → RPi로 전환(케이블/연결 변경)
@@ -224,8 +224,8 @@ sequenceDiagram
   Daemon->>KRPI: request/trigger send (implementation-defined)
   KRPI->>STM32: Vendor control / trigger
   STM32->>STM32: ven_send(): read info + packets from SD
-  STM32-->>KRPI: Vendor IN (256B frames)
-  KRPI-->>Daemon: read(256B)
+  STM32-->>KRPI: Vendor IN (256Byte frames)
+  KRPI-->>Daemon: read(256Byte)
   Daemon->>Daemon: parse S/D/C + exec
 ```
 
@@ -238,7 +238,7 @@ sequenceDiagram
 0x04 (1)   info_id      = type/flags
 0x05 (2)   cmd_len      = 0~249
 0x07 (249) cmd bytes    = ASCII/UTF-8
-Total: 256B
+Total: 256Byte
 ```
 
 ```c
@@ -287,7 +287,7 @@ KERNEL=="custom_usb*", MODE="0666"
 ```bash
 cd pc_client_qt
 ./CUSTOM_USB_CLIENT
-# Qt에서 명령 생성 → /dev/custom_usb_pc로 256B 전송
+# Qt에서 명령 생성 → /dev/custom_usb_pc로 256Byte 전송
 ```
 
 ### 4) RPi에서 패킷 수신/실행(Fetch & Execute)
@@ -295,7 +295,7 @@ cd pc_client_qt
 cd rpi_daemon
 python3 main.py
 # (트리거 방식에 따라) ven_send 동작을 유발하면
-# /dev/custom_usb_rpi로 256B 프레임이 들어오고 daemon이 실행
+# /dev/custom_usb_rpi로 256Byte 프레임이 들어오고 daemon이 실행
 ```
 
 ### 5) Recovery 모드(Serial Console)
@@ -311,7 +311,7 @@ sudo minicom -D /dev/ttyACM0 -b 115200
 ## 🧯 Troubleshooting
 
 - **`read()`가 블록 / 패킷이 드롭됨**
-  - 256B 프레임 경계 깨짐(부분 write), magic/len 검증 실패 확인
+  - 256Byte 프레임 경계 깨짐(부분 write), magic/len 검증 실패 확인
 - **SD busy / Vendor가 SD보다 빠름**
   - 코드에 `[vendor] rx buffer overflow`가 뜨면 송신 측(PC)이 재전송/대기 로직 필요
   - `#ifdef ASYNC`에서 SD busy면 **다시 보내라고 에코**하는 로직이 있음(프로토콜 정리 추천)
