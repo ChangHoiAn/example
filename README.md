@@ -83,7 +83,7 @@ flowchart TB
     K_PC -->|USB Vendor OUT : URB| FW_VEN
   end
 
-  subgraph MCU_Group ["Black Pill (STM32)"]
+  subgraph MCU_Group ["Black Pill"]
     direction TB
     FW_VEN["vendor.c<br/>tud_vendor_rx_cb<br/>256B reassemble"]
     SD["SD Card 512B block<br/>SD_Write_DMA_Async"]
@@ -92,12 +92,12 @@ flowchart TB
     FW_VEN -->|update metadata| INFO
   end
 
-  subgraph RPI_Phase ["Phase B: RPi에서 실행(Fetch & Execute)"]
+  subgraph RPI_Phase ["Phase B: RPi에서 실행 : Fetch & Execute"]
     direction TB
     KRPI["Linux Kernel Driver<br/>/dev/custom_usb_rpi"]
     DAEMON["daemon<br/>Parser + Executor : S/D/C"]
     ROS2["ROS2"]
-    KRPI -->|read(256B)| DAEMON
+    KRPI -->|read : 256B| DAEMON
     DAEMON --> ROS2
   end
 
