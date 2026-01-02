@@ -46,8 +46,8 @@ flowchart LR
     MCU[Black Pill\nTinyUSB Composite\nVendor + MSC Packet Store]
     RPI[Raspberry Pi\nKernel Driver + daemon + ROS2\n/dev/custom_usb_rpi]
 
-    PC  <--> |Vendor (256B cmd/resp)| MCU
-    MCU <--> |Vendor (256B cmd/resp)| RPI
+    PC  <--> |Vendor : 256B cmd/resp| MCU
+    MCU <--> |Vendor : 256B cmd/resp| RPI
 
     PC  -.-> |MSC mount: write 256B packets| MCU
     RPI -.-> |MSC mount: read 256B packets| MCU
