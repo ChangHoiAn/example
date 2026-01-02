@@ -18,7 +18,7 @@
 
 **PC(QT + Linux Kernel Driver) ↔ Black Pill(CDC UART) ↔ Raspberry Pi(TurtleBot, Ubuntu Server) ↔ Shell(agetty)**
 
-구조로 **명령 전달 / 로그·파일 교환 / 네트워크 장애 대비 UART 긴급 루트**를 제공하는 프로젝트입니다.
+구조로 **명령 전달 / 파일 교환 / 네트워크 장애 대비 UART 긴급 루트**를 제공하는 프로젝트입니다.
 
 > 핵심 포인트: **Vendor로 들어온 “256B 명령 패킷”을 커널 드라이버가 읽고/쓰게 만들고**, QT/daemon은 `/dev/*` 디바이스 파일로 간단히 접근합니다.
 
