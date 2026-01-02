@@ -104,8 +104,8 @@ flowchart TB
   L_VEN1 <==> FW_VEN
   FW_VEN <==>|URB| K_RPI
 
-  FW_MSC -.->|mount (PC/RPi)| PC_Group
-  FW_MSC -.->|mount (PC/RPi)| RPI_Group
+  FW_MSC -.->|mount : PC/RPi| PC_Group
+  FW_MSC -.->|mount : PC/RPi| RPI_Group
 
   class PC_Group,QT,K_PC pc;
   class STM32_Group,FW_VEN,FW_MSC mcu;
