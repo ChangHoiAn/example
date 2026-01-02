@@ -43,7 +43,7 @@ flowchart LR
   classDef usb fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5,color:black;
 
   PC["PC<br/>Qt App + Kernel Driver<br/>/dev/custom_usb_pc"]
-  MCU["Black Pill (STM32)<br/>TinyUSB Composite<br/>Mode: Vendor+MSC / CDC+MSC"]
+  MCU["Black Pill <br/>TinyUSB Composite<br/>Mode: Vendor+MSC / CDC+MSC"]
   RPI["Raspberry Pi<br/>Kernel Driver + daemon + ROS2<br/>/dev/custom_usb_rpi"]
 
   PC  <--> |Vendor: 256B cmd/resp| MCU
