@@ -85,7 +85,7 @@ flowchart TB
     L_VEN1["Vendor Interface<br/>Bulk/Interrupt EP"]
   end
 
-  subgraph STM32_Group ["Black Pill (STM32)"]
+  subgraph STM32_Group ["Black Pill"]
     direction TB
     FW_VEN["Vendor Logic<br/>256B passthrough + store"]
     FW_MSC["MSC Packet Store<br/>256B packets on storage"]
@@ -94,7 +94,7 @@ flowchart TB
   subgraph RPI_Group ["Raspberry Pi"]
     direction TB
     K_RPI["Linux Kernel Driver<br/>/dev/custom_usb_rpi"]
-    DAEMON["daemon<br/>Parser + Executor (S/D/C)"]
+    DAEMON["daemon<br/>Parser + Executor : S/D/C"]
     ROS2["ROS2"]
     K_RPI <==>|char dev I/O| DAEMON
     DAEMON --> ROS2
