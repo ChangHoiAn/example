@@ -10,7 +10,7 @@
 
 ## ✨ 한 줄 요약
 
-**MAIN (Vendor 256B Store-and-Forward + SD Packet Store)**  
+**MAIN (Vendor 256Byte Store-and-Forward + SD Packet Store)**  
 PC(Qt App + Linux Kernel Driver) → Black Pill(TinyUSB: Vendor + MSC) → *(SD에 256B 패킷 저장)* → Raspberry Pi(Linux Kernel Driver) → daemon(명령 실행)
 
 **RECOVERY (Serial Console over CDC↔UART, Black Pill이 CDC 모드로 전환)**  
