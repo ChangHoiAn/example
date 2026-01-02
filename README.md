@@ -91,10 +91,10 @@ flowchart TB
     VEN_RX -->|update count| META
   end
 
-  subgraph RPI_Phase ["Phase B: RPi에서 실행 (FETCH & EXECUTE)"]
+  subgraph RPI_Phase ["Phase B: RPi에서 실행 FETCH & EXECUTE"]
     direction TB
     KRPI["Linux Kernel Driver<br/>/dev/custom_usb_rpi"]
-    DAEMON["daemon<br/>Parse + Execute (S/D/C)"]
+    DAEMON["daemon<br/>Parse + Execute S/D/C"]
     ROS2["ROS2 / System Commands"]
     KRPI -->|read 256B packet| DAEMON
     DAEMON --> ROS2
