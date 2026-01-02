@@ -3,7 +3,8 @@
 **PC(Qt)에서 TurtleBot(Raspberry Pi)를 USB로 제어/자동화하고, 네트워크/SSH가 끊겨도 UART 시리얼 콘솔로 복구하는 Smart USB Bridge**
 
 <center>
-  <img src="./assets/animations/demo.webp" alt="demo" width="90%" />
+<img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/386f7e72-4ad5-4df8-80bc-a3b72d97cecb" />
+
 </center>
 
 ---
