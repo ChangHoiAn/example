@@ -1,6 +1,6 @@
 # USB-MACRO
 
-***PC(QT)에서 TurtleBot(Raspberry Pi)를 USB 기반으로 제어/자동화하고, SSH/네트워크가 끊겨도 UART로 “긴급 통신(로그/쉘)”을 유지하는 커스텀 USB 브릿지 시스템***
+**PC(Qt)에서 TurtleBot(Raspberry Pi)를 USB로 제어/자동화하고, 네트워크/SSH가 끊겨도 UART 시리얼 콘솔로 복구하는 Smart USB Bridge**
 
 <center>
   <img src="./assets/animations/demo.webp" alt="demo" width="90%" />
@@ -11,23 +11,23 @@
 ## ✨ 한 줄 요약
 
 **MAIN (Vendor 256B + MSC Packet Store)**  
-PC(Qt App + Linux Kernel Driver) ↔ Black Pill(TinyUSB Composite: Vendor + MSC) ↔ Raspberry Pi(TurtleBot, Ubuntu Server) ↔ (Linux Kernel Driver) ↔ daemon
+PC(Qt App + Linux Kernel Driver) ↔ Black Pill(TinyUSB: Vendor + MSC) ↔ Raspberry Pi(Linux Kernel Driver) ↔ daemon(명령 실행)
 
-**RECOVERY (UART Serial Console)**  
-PC(Terminal) ↔ Black Pill(CDC↔UART Bridge) ↔ Raspberry Pi(TurtleBot, Ubuntu Server) ↔ Shell(agetty)
+**RECOVERY (Serial Console over CDC↔UART, Black Pill이 CDC 모드로 전환)**  
+PC(Terminal) ↔ Black Pill(CDC↔UART Bridge) ↔ Raspberry Pi(agetty) ↔ Shell(복구)
 
-구조로 **명령 전달 / 256B 패킷 저장·회수(MSC) / 네트워크 장애 대비 UART 긴급 루트**를 제공하는 프로젝트입니다.
-
-> 핵심 포인트: **Vendor로 들어온 “256B 명령 패킷”을 커널 드라이버가 읽고/쓰게 만들고**, QT/daemon은 `/dev/*` 디바이스 파일로 간단히 접근합니다.
+> 핵심: **Vendor 256B 명령 패킷을 커널 드라이버가 `/dev/custom_usb_*`로 노출**해서 Qt/daemon은 파일 I/O(read/write/poll)처럼 다룹니다.  
+> MSC는 “파일 교환”이 아니라 **256B Vendor 패킷 저장/회수(Packet Store)** 용도로 씁니다.
 
 ---
 
-## 🧩 배경 & 목표
+## ✅ Key Features
 
-- TurtleBot(Raspberry Pi) 제어를 PC에서 **더 안정적이고 구조적으로** 수행
-- USB Vendor로 명령을 전달하고, Raspberry Pi의 daemon이 이를 파싱/실행하도록 구성
-- 네트워크가 불안정해도 **UART로 로그/쉘을 PC로 브릿지**하여 복구 가능
-- **MSC(USB Mass Storage)** 를 **256B Vendor 패킷 저장/읽기(Packet Store)** 용도로 사용 (PC/RPi에서 mount)
+- **/dev 기반 제어**: libusb 없이 `read/write/poll`로 간단 제어
+- **256B 고정 프레임 프로토콜**: 프레이밍/검증이 단순하고 안정적
+- **MSC Packet Store**: 256B 패킷을 파일로 저장/읽기(케이블 전환/검증/재현에 유리)
+- **Recovery UART Console**: 네트워크 불가 시에도 CDC↔UART로 시리얼 콘솔(agetty) 확보  
+  *(Recovery 시 Black Pill이 CDC 모드로 동작)*
 
 ---
 
@@ -37,186 +37,160 @@ PC(Terminal) ↔ Black Pill(CDC↔UART Bridge) ↔ Raspberry Pi(TurtleBot, Ubunt
 ```mermaid
 %%{init: {"themeVariables": {"fontSize": "16px"}, "flowchart": {"useMaxWidth": true, "nodeSpacing": 45, "rankSpacing": 60, "diagramPadding": 8}}}%%
 flowchart LR
-    classDef pc fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:black;
-    classDef mcu fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:black;
-    classDef rpi fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:black;
-    classDef usb fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5,color:black;
+  classDef pc fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:black;
+  classDef mcu fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:black;
+  classDef rpi fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:black;
+  classDef usb fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5,color:black;
 
-    PC["PC<br/>Qt App + Kernel Driver<br/>/dev/custom_usb_pc"]
-    MCU["Black Pill<br/>TinyUSB Composite<br/>Vendor + MSC (Packet Store)"]
-    RPI["Raspberry Pi<br/>Kernel Driver + daemon + ROS2<br/>/dev/custom_usb_rpi"]
+  PC["PC<br/>Qt App + Kernel Driver<br/>/dev/custom_usb_pc"]
+  MCU["Black Pill (STM32)<br/>TinyUSB Composite<br/>Mode: Vendor+MSC / CDC+MSC"]
+  RPI["Raspberry Pi<br/>Kernel Driver + daemon + ROS2<br/>/dev/custom_usb_rpi"]
 
-    PC  <--> |Vendor: 256B cmd/resp| MCU
-    MCU <--> |Vendor: 256B cmd/resp| RPI
+  PC  <--> |Vendor: 256B cmd/resp| MCU
+  MCU <--> |Vendor: 256B cmd/resp| RPI
 
-    PC  -.-> |MSC mount: write 256B packets| MCU
-    RPI -.-> |MSC mount: read 256B packets| MCU
+  PC  -.-> |MSC mount: write/read 256B packets| MCU
+  RPI -.-> |MSC mount: write/read 256B packets| MCU
 
-    PC  -.-> |Recovery UART: CDC↔UART| RPI
+  PC  -.-> |Recovery: Black Pill switches to CDC| MCU
+  MCU -.-> |CDC↔UART bridge| RPI
 
-    class PC pc;
-    class MCU mcu;
-    class RPI rpi;
-    class PC,MCU,RPI usb;
+  class PC pc;
+  class MCU mcu;
+  class RPI rpi;
+  class PC,MCU,RPI usb;
 ```
 
-<details> <summary><b>1) 평상시 제어 모드 (Normal Operation Mode)</b></summary>
+---
+
+<details>
+<summary><b>1) 평상시 제어 모드 (Normal Operation Mode) - 상세</b></summary>
+
 ```mermaid
 %%{init: {"themeVariables": {"fontSize": "16px"}, "flowchart": {"useMaxWidth": true, "nodeSpacing": 55, "rankSpacing": 75, "diagramPadding": 10}}}%%
 flowchart TB
-    classDef pc fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:black;
-    classDef mcu fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:black;
-    classDef rpi fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:black;
-    classDef usb fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5,color:black;
+  classDef pc fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:black;
+  classDef mcu fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:black;
+  classDef rpi fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:black;
+  classDef usb fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5,color:black;
 
-    subgraph PC_Group ["💻 PC"]
-        direction TB
-        QT["QT App<br/>GUI Controller"]
-        K_PC["Linux Kernel Driver<br/>/dev/custom_usb_pc"]
-        QT <-->|read/write| K_PC
-    end
+  subgraph PC_Group ["PC"]
+    direction TB
+    QT["Qt App<br/>GUI Controller"]
+    K_PC["Linux Kernel Driver<br/>/dev/custom_usb_pc"]
+    QT <-->|read/write/poll| K_PC
+  end
 
-    subgraph USB_Link1 ["High-Speed Link"]
-        L_VEN1["Vendor Interface<br/>Main Data Stream"]
-    end
+  subgraph USB_Link1 ["USB Vendor Link"]
+    L_VEN1["Vendor Interface<br/>Bulk/Interrupt EP"]
+  end
 
-    subgraph STM32_Group ["🕹️ Black Pill"]
-        direction TB
-        FW_VEN["Vendor Logic<br/>Passthrough Mode"]
-    end
+  subgraph STM32_Group ["Black Pill (STM32)"]
+    direction TB
+    FW_VEN["Vendor Logic<br/>256B passthrough + store"]
+    FW_MSC["MSC Packet Store<br/>256B packets on storage"]
+  end
 
-    subgraph Link_RPi ["RPi Connection"]
-        L_VEN2["USB Vendor"]
-    end
+  subgraph RPI_Group ["Raspberry Pi"]
+    direction TB
+    K_RPI["Linux Kernel Driver<br/>/dev/custom_usb_rpi"]
+    DAEMON["daemon<br/>Parser + Executor (S/D/C)"]
+    ROS2["ROS2"]
+    K_RPI <==>|char dev I/O| DAEMON
+    DAEMON --> ROS2
+  end
 
-    subgraph RPI_Group ["🤖 Raspberry Pi"]
-        direction TB
-        K_RPI["Linux Kernel Driver<br/>/dev/custom_usb_rpi"]
-        DAEMON["Daemon Process<br/>Command Parser"]
-        ROS2["ROS 2 System<br/>TurtleBot Control"]
+  K_PC <==>|URB| L_VEN1
+  L_VEN1 <==> FW_VEN
+  FW_VEN <==>|URB| K_RPI
 
-        K_RPI <==>|Character Dev I/O| DAEMON
-        DAEMON -->|S, D, C Cmd| ROS2
-    end
+  FW_MSC -.->|mount (PC/RPi)| PC_Group
+  FW_MSC -.->|mount (PC/RPi)| RPI_Group
 
-    K_PC <==>|Bulk Transfer| L_VEN1
-    L_VEN1 <==> FW_VEN
-    FW_VEN <==>|Bulk Transfer| L_VEN2
-    L_VEN2 <==> K_RPI
-
-    class PC_Group,QT,K_PC pc;
-    class STM32_Group,FW_VEN mcu;
-    class RPI_Group,K_RPI,DAEMON,ROS2 rpi;
-    class USB_Link1,L_VEN1,Link_RPi,L_VEN2 usb;
-</details>
+  class PC_Group,QT,K_PC pc;
+  class STM32_Group,FW_VEN,FW_MSC mcu;
+  class RPI_Group,K_RPI,DAEMON,ROS2 rpi;
+  class USB_Link1,L_VEN1 usb;
 ```
 
-<details> <summary><b>2) 긴급 복구 및 유지보수 모드 (Emergency &amp; Maintenance Mode)</b></summary>
+**How it works (Normal)**
+- PC(Qt)가 `write(fd, 256)` → 커널 드라이버가 Vendor OUT URB로 전송
+- STM32는 256B 프레임을 **저장(필요 시) + passthrough**
+- RPi 커널 드라이버가 Vendor IN을 받아 `/dev/custom_usb_rpi`로 노출
+- daemon이 `read()` 후 S/D/C로 실행(ROS2/시스템 명령)
+
+</details>
+
+---
+
+<details>
+<summary><b>2) 긴급 복구 모드 (Recovery: CDC↔UART Serial Console) - 상세</b></summary>
+
 ```mermaid
 %%{init: {"themeVariables": {"fontSize": "16px"}, "flowchart": {"useMaxWidth": true, "nodeSpacing": 55, "rankSpacing": 75, "diagramPadding": 10}}}%%
 flowchart TB
-    classDef pc fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:black;
-    classDef mcu fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:black;
-    classDef rpi fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:black;
-    classDef usb fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5,color:black;
+  classDef pc fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:black;
+  classDef mcu fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:black;
+  classDef rpi fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:black;
+  classDef usb fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5,color:black;
 
-    subgraph PC_Group ["💻 PC"]
-        direction TB
-        TERM["Terminal<br/>Putty / Qt Terminal"]
-        MSC_Drive["MSC Drive<br/>Packet Store 256B"]
-    end
+  subgraph PC_Group ["PC"]
+    direction TB
+    TERM["Terminal<br/>PuTTY / minicom / Qt Terminal"]
+  end
 
-    subgraph USB_Link1 ["Emergency Link"]
-        L_CDC["CDC Interface<br/>Virtual COM Port"]
-        L_MSC["MSC Interface<br/>Packet Store"]
-    end
+  subgraph STM32_Group ["Black Pill (STM32)"]
+    direction TB
+    MODE["Mode Switch<br/>Vendor → CDC"]
+    CDCFW["CDC Logic<br/>USB CDC ↔ UART bridge"]
+    MSCFW["MSC Packet Store<br/>256B packet files"]
+  end
 
-    subgraph STM32_Group ["🕹️ Black Pill"]
-        direction TB
-        subgraph Logic ["Firmware Logic"]
-            FW_CDC["CDC Logic<br/>UART Bridge"]
-            FW_MSC["MSC Logic<br/>Packet Store I/O"]
-        end
-    end
+  subgraph RPI_Group ["Raspberry Pi"]
+    direction TB
+    AGETTY["agetty<br/>Serial Console"]
+    SHELL["Shell / Recovery"]
+    AGETTY <--> SHELL
+  end
 
-    subgraph Link_RPi ["Physical Connection"]
-        L_UART["Physical UART<br/>GPIO 14/15"]
-    end
+  TERM <--> |USB CDC| CDCFW
+  CDCFW <--> |UART TX/RX| AGETTY
 
-    subgraph RPI_Group ["🤖 Raspberry Pi"]
-        direction TB
-        AGETTY["agetty<br/>Serial Console"]
-        BASH["Bash Shell<br/>System Recovery"]
-        AGETTY <-->|Login/Input| BASH
-    end
-
-    TERM <-->|Command| L_CDC
-    MSC_Drive -.->|Mount| L_MSC
-
-    L_CDC <--> FW_CDC
-    L_MSC -.-> FW_MSC
-
-    FW_CDC <-->|TX/RX Raw| L_UART
-    L_UART <--> AGETTY
-
-    class PC_Group,TERM,MSC_Drive pc;
-    class STM32_Group,FW_CDC,FW_MSC,Logic mcu;
-    class RPI_Group,AGETTY,BASH rpi;
-    class USB_Link1,L_CDC,L_MSC,Link_RPi,L_UART usb;
-</details>
+  class PC_Group,TERM pc;
+  class STM32_Group,MODE,CDCFW,MSCFW mcu;
+  class RPI_Group,AGETTY,SHELL rpi;
 ```
+
+**How it works (Recovery)**
+- Black Pill이 **CDC 모드로 전환** → PC는 가상 COM으로 접속
+- CDC 데이터는 UART로 브릿지되어 RPi의 **agetty 시리얼 콘솔**로 연결
+- 네트워크/SSH 없이도 로그인/복구 가능
+
+</details>
+
 ---
 
 ## 🧱 구성 요소 (Components)
 
-### 1) PC (QT App)
-- **역할**
-  - 사용자 UI 제공 (명령 작성/컴파일/큐 관리)
-  - 명령(256B struct)을 **Vendor로 전송**
-  - 실행 결과/로그 표시(옵션: MSC로 파일 회수)
-- **통신**
-  - **USB Vendor**: 구조화된 명령/응답/상태 처리
-  - **MSC**: 로그/스크립트/설정 파일 교환 등
+### 1) PC (Qt App)
+- `/dev/custom_usb_pc`로 256B 패킷 `read/write/poll`
+- (필요 시) MSC(Packet Store) 마운트해서 **패킷 파일 저장/검증/재현**
 
-### 2) STM32 / Black Pill (CUSTOM_USB Firmware)
-- **역할**: USB Composite Device + UART 브릿지 + 명령 저장/전달
-- **USB**
-  - **Vendor**: PC/RPi ↔ STM32 명령 패킷 전송(256B)
-  - **MSC**: 로그/파일 교환(옵션)
-- **UART**
-  - 정상: RPi daemon으로 명령 전달 / 응답 수신
-  - 비상: RPi 로그/쉘 스트림을 PC로 브릿지(구현 시)
+### 2) STM32 / Black Pill (Firmware)
+- TinyUSB Composite: **Vendor + MSC**, (Recovery 시) **CDC + MSC**
+- Vendor: 256B 프레임 송수신 + (필요 시) 저장
+- MSC: 256B 패킷 저장소(Packet Store)
+- CDC: Recovery에서 USB CDC ↔ UART 브릿지
 
-### 3) Raspberry Pi (TurtleBot, Ubuntu Server) + daemon
-- **역할**
-  - `/dev/custom_usb`를 통해 STM32로부터 명령 패킷을 읽어 실행
-  - 명령을 `S/D/C`로 분류하여 실행/스케줄링
-  - 필요 시 로그를 STM32(또는 파일)로 저장해 회수 가능하게 처리
-- **명령 분류**
-  - `S` (Static): 즉시 실행 단발 명령 (예: `apt update`)
-  - `D` (Delay): 지연이 필요한 명령 (예: “5m 이동 후 다음 단계”)
-  - `C` (Continuous): bringup처럼 **백그라운드/지속 실행** 명령
+### 3) Raspberry Pi + daemon
+- `/dev/custom_usb_rpi`에서 256B 패킷 수신
+- daemon이 `S/D/C`로 파싱 후 실행(ROS2 포함)
+- Recovery에서는 agetty를 통해 시리얼 콘솔 제공
 
 ### 4) Linux Kernel Driver (PC/RPi 공용)
-- **왜 필요한가?**
-  - Vendor endpoint로 들어오는 “데이터 뭉치(명령 패킷)”를 **유저 공간(QT/daemon)이 안정적으로 read/write** 하기 위해
-  - libusb로 직접 다뤄도 되지만, 커널 드라이버로 만들면:
-    - QT/daemon이 **파일 I/O(`read/write/poll`)** 로 단순해짐
-    - 연결/해제, 동시성, 버퍼링을 커널에서 일관되게 관리 가능
-
-- **역할**
-  - USB 디바이스(VID/PID, 인터페이스)를 `probe()`로 잡고 Vendor 인터페이스를 claim
-  - Bulk/Interrupt endpoint를 사용해 **URB 송수신**
-  - 수신 패킷을 커널 링버퍼에 적재 → 유저 공간에서 `read()` 가능
-  - 유저 공간 `write()`는 송신 큐를 통해 endpoint로 전송
-  - `poll()`/`select()` 지원으로 이벤트 기반 처리(QT UI, daemon loop) 가능
-  - 연결 해제 시 `disconnect()`에서 안전하게 정리
-
-- **유저 공간 인터페이스 예시**
-  - `/dev/custom_usb0` (char device)
-  - `read(fd, buf, 256)` : STM32→Host(명령/상태/응답)
-  - `write(fd, buf, 256)` : Host→STM32(명령 패킷)
-  - (선택) `ioctl()` : 현재 모드/에러 코드/버퍼 상태 조회 등
+- USB Vendor 인터페이스를 `probe()`로 잡고 URB 송수신
+- char device(`/dev/custom_usb_*`) 제공: `read/write/poll` 중심
+- disconnect 시 안전 정리
 
 ---
 
@@ -225,166 +199,61 @@ flowchart TB
 ```mermaid
 sequenceDiagram
   actor User
-  participant Qt as PC(QT)
+  participant Qt as PC(Qt)
   participant KPC as PC Kernel Driver
-  participant STM32 as STM32(CUSTOM_USB)
+  participant STM32 as Black Pill
   participant KRPI as RPi Kernel Driver
-  participant Daemon as RPi Daemon
+  participant Daemon as RPi daemon
 
-  User->>Qt: 명령 작성/컴파일
-  Qt->>KPC: write(256B cmd)
-  KPC->>STM32: USB Vendor OUT (URB)
-  STM32->>STM32: cmd 저장
+  User->>Qt: Build/queue command
+  Qt->>KPC: write(256B)
+  KPC->>STM32: Vendor OUT (URB)
+  STM32->>STM32: store/forward 256B
 
-  Note over User,STM32: USB 케이블을 PC에서 Robot(RPi)로 연결 전환
-
-  KRPI->>STM32: USB 연결/열거
-  Daemon->>KRPI: read(256B cmd)
-  KRPI-->>Daemon: cmd 전달
-  Daemon->>Daemon: S/D/C 파싱 및 실행
-  Daemon-->>KRPI: (선택) 상태/결과 write
-  KRPI-->>STM32: 결과 전달/저장
-  STM32-->>STM32: 로그/파일 저장(MSC)
+  KRPI->>STM32: enumerate (RPi side)
+  Daemon->>KRPI: read(256B)
+  KRPI-->>Daemon: deliver frame
+  Daemon->>Daemon: parse S/D/C
+  Daemon->>Daemon: exec (fork/exec)
 ```
 
 ---
 
-## 🧾 명령 모델 (S / D / C)
-
-daemon이 처리하는 명령은 3종으로 나뉩니다.
-
-### S: Static (단발 실행)
-- 예: `apt update`, `uname -a`, `ros2 topic list`
-
-### D: Delay (지연/시간 기반)
-- 예: “로봇 5m 이동 → n초 대기 → 다음 명령 실행”
-- 구현 예시(문서용)
-  - `D,<delay_ms>,<cmd>`
-  - 또는 “timeout/스케줄러 큐” 기반
-
-### C: Continuous (지속 실행/백그라운드)
-- 예: `ros2 launch ... bringup` 처럼 계속 떠 있어야 하는 프로세스
-- 권장 기능
-  - PID/프로세스 추적
-  - 중복 실행 방지
-  - stop/restart/status(옵션)
-
----
-
-## 🧭 디바이스 모드 (Linux / Emergency)
-
-```mermaid
-stateDiagram-v2
-  [*] --> RootMode
-
-  RootMode --> LinuxMode: rotary + key
-  RootMode --> EmergencyMode: rotary + key
-
-  LinuxMode --> WriteMode: rotary + key
-  LinuxMode --> NoWriteMode: rotary + key
-  WriteMode --> LinuxMode: key
-  NoWriteMode --> LinuxMode: key
-  EmergencyMode --> RootMode: key
-```
-
-- **LinuxMode**: 정상 제어 모드(PC/RPi → Vendor → daemon 실행)
-- **EmergencyMode**: SSH/네트워크 장애 시 UART 쉘 확보 모드(구현 시)
-
----
-
-## 🔌 통신 프로토콜 (USB Vendor)
-
-### 패킷 크기: 256 bytes
-
-- 목적: 구조화된 명령/응답/상태를 안정적으로 전달
-- 기본 컨셉: **커널 드라이버가 256B 프레임 단위로 read/write** 하도록 고정
-
-#### 레이아웃(문서 기준)
+## 🔌 USB Vendor Packet (256 bytes fixed)
 
 ```text
-0x00  (4)    magic          = 0xDEADBEEF
-0x04  (1)    info_id        = bit-fields (명령 타입/플래그 등)
-0x05  (2)    cmd_len        = 실제 문자열 길이 (0~249)
-0x07  (249)  cmd_statement  (ASCII/UTF-8, NULL-optional)
-총 256 bytes
+0x00 (4)   magic        = 0xDEADBEEF
+0x04 (1)   info_id      = type/flags
+0x05 (2)   cmd_len      = 0~249
+0x07 (249) cmd bytes    = ASCII/UTF-8
+Total: 256B
 ```
-
-#### C struct 예시(참고)
 
 ```c
 #pragma pack(push, 1)
 typedef struct {
-    uint32_t magic;        // 0xDEADBEEF (LE)
-    uint8_t  info_id;      // bit-fields
-    uint16_t cmd_len;      // 0~249
-    char     cmd[249];     // command string
+    uint32_t magic;      // 0xDEADBEEF (LE)
+    uint8_t  info_id;    // type/flags
+    uint16_t cmd_len;    // 0~249
+    char     cmd[249];   // command string
 } vendor_pkt_t;
 #pragma pack(pop)
-```
-
-> 팁: magic/길이 검증을 **커널 드라이버에서 1차로** 하면, 유저 공간에서 예외 처리가 훨씬 단순해집니다.
-
----
-
-## 🔌 UART (STM32 ↔ Raspberry Pi)
-
-- 목적: daemon으로 명령 전달 + 실행 결과/로그 수신
-- Emergency 모드에서는 로그 스트림을 우선 브릿지(구현 시)
-- 권장: UART는 **프레이밍(길이/헤더/CRC)** 을 두거나 라인 기반으로 최소한의 동기화 수단을 두는 편이 안정적입니다.
-
----
-
-## 🧰 기술 스택 (Tech Stack)
-
-### Firmware (STM32 / Black Pill)
-- Language: C
-- USB: TinyUSB (Composite: Vendor + MSC)
-- MCU: STM32 HAL/LL
-- UART: Interrupt/DMA 기반(권장)
-
-### Linux Kernel Driver (PC/RPi)
-- Language: C (Linux Kernel Module)
-- USB: `usb_driver`, URB(Bulk/Interrupt)
-- Interface: char device(`/dev/custom_usb*`), `read/write/poll`, (optional) `ioctl`
-
-### PC Client (QT)
-- Language: C++ / Qt
-- 역할: 디바이스 파일(`/dev/custom_usb*`) I/O, 명령 UI, 로그 뷰어
-
-### Raspberry Pi daemon
-- Language: (레포 기준: Python/C++)
-- 역할: 명령 파싱(S/D/C), 실행/스케줄링, 상태 보고, 로그 저장/회수
-
----
-
-## 📦 레포 구조 (예시)
-
-```text
-CUSTOM_USB/
-├─ firmware/                 # STM32 펌웨어
-│  ├─ usb/                   # TinyUSB composite 설정
-│  ├─ msc/                   # MSC (SD/가상 디스크)
-│  └─ uart/                  # UART bridge
-├─ kernel_driver/            # Linux kernel module (PC/RPi 공용)
-├─ pc_client_qt/             # PC용 QT 앱
-├─ rpi_daemon/               # Raspberry Pi daemon
-├─ docs/                     # 문서/설계/프로토콜 정의
-└─ assets/                   # 이미지/gif/다이어그램
 ```
 
 ---
 
 ## 🚀 설치 및 실행 (Setup & Usage)
 
-> 아래 명령은 예시입니다. 레포의 실제 빌드/실행 방식에 맞게 수정하세요.
+> 아래는 예시. 레포 구조에 맞게 경로만 맞추면 됨.
 
-### 1) STM32 펌웨어 빌드/플래시
+### 1) Firmware Flash
 ```bash
 cd firmware
 make
+# flash tool(ST-Link/DFU 등)로 업로드
 ```
 
-### 2) 커널 드라이버 빌드/로드 (PC/RPi 공용)
+### 2) Kernel Driver (PC/RPi 공용)
 ```bash
 cd kernel_driver
 make
@@ -393,70 +262,58 @@ dmesg | tail
 ls -l /dev/custom_usb*
 ```
 
-(권한 설정 예: udev rule)
+udev rule 예시:
 ```bash
 # /etc/udev/rules.d/99-custom-usb.rules
 KERNEL=="custom_usb*", MODE="0666"
 ```
 
-### 3) Raspberry Pi daemon 실행
+### 3) RPi daemon 실행
 ```bash
 cd rpi_daemon
-./run.sh
-# 또는
 python3 main.py
 ```
 
-### 4) PC(QT) 실행
+### 4) PC(Qt) 실행
 ```bash
 cd pc_client_qt
 ./CUSTOM_USB_CLIENT
 ```
 
----
-
-## 🧯 트러블슈팅 (Troubleshooting)
-
-### 1) STM32에서 보내준 명령어가 커널 영역에서 read가 안 되는 상황
-- **증상**: `read()`가 블록되거나, 드라이버가 프레임을 버림
-- **주요 원인**
-  - magic 값이 다름 → 검증 로직에서 drop
-  - endian/struct packing 불일치(특히 `cmd_len`, `magic`)
-  - host가 256B를 “부분 write” 해서 프레임 경계가 깨짐
-- **해결 팁**
-  - 커널에서 256B 단위로만 enqueue/dequeue 하도록 강제
-  - `#pragma pack(1)` / `__attribute__((packed))` 사용
-  - `cmd_len <= 249` 범위 체크, NULL 종료 정책 통일
-
-### 2) SDIO 통신이 잘 안 되는 상황(MSC/SD 관련)
-- **원인/경험**
-  - 기본 세팅에서 SDIO 환경 바꾸기보다는 **main에서 별도 SDIO 설정**을 명시하는 편이 안정적
-- **체크리스트**
-  - 클럭/버스폭/풀업, DMA 설정, 카드 타입(SDHC) 호환 확인
-
-### 3) USB Composite가 정상적으로 안 잡힘(Vendor/MSC 일부만 뜸)
-- 디스크립터/인터페이스 번호 충돌 확인
-- OS별 드라이버 바인딩 확인(특히 Linux에서 자동 바인딩되는 클래스 드라이버)
-
-### 4) Vendor 통신은 되는데 UART가 조용함
-- STM32 UART TX/RX 교차 연결, baudrate, GND 공통 확인
-- RPi에서 `/dev/ttyAMA0` / `/dev/ttyS0` 혼동 주의
-
-### 5) Emergency 모드에서도 로그가 안 올라옴
-- RPi UART 콘솔/로그 출력 설정 확인
-- daemon이 UART를 독점하고 있지 않은지 확인
+### 5) Recovery 모드(Serial Console)
+- Black Pill을 **Recovery(CDC) 모드로 전환**
+- PC에서 COM 포트로 접속:
+```bash
+# 예: Linux
+sudo minicom -D /dev/ttyACM0 -b 115200
+```
+- RPi는 agetty가 떠 있어야 함(환경에 맞게 설정)
 
 ---
 
-## 🗺️ 로드맵 (Roadmap)
+## 🧯 Troubleshooting
 
-- [ ] Vendor 프로토콜 표준화(ACK/재전송/타임아웃)
-- [ ] 커널 드라이버 ioctl 확장(버퍼 상태/에러코드/모드 조회)
-- [ ] C(continuous) 프로세스 관리 강화(stop/restart/status)
-- [ ] 로그 채널 분리(명령 채널 vs 스트림 채널)
-- [ ] docs 자동 생성(프로토콜/명령 명세)
+- **`\n` 줄바꿈이 그대로 출력됨**
+  - Mermaid 노드 라벨 줄바꿈은 `\n` 대신 **`<br/>`** 사용
+- **자세히 보기(details)가 안 접힘**
+  - `<details>` / `<summary>`는 줄바꿈 + summary 다음 빈 줄 + `</details>` 필수
+- **256B read가 블록/드롭**
+  - magic/len 검증, struct packing, 부분 write로 프레임 경계 깨짐 확인
+- **Composite 일부만 잡힘**
+  - 인터페이스 번호/드라이버 바인딩 확인(특히 Linux 자동 class driver)
+- **Recovery 콘솔이 안 붙음**
+  - UART 핀(TX/RX/GND), agetty 설정, 다른 프로세스가 tty 점유 중인지 확인
+
+---
+
+## 🗺️ Roadmap
+
+- [ ] ACK/재전송/타임아웃(프로토콜 안정화)
+- [ ] ioctl 확장(모드/에러/버퍼 상태)
+- [ ] C(continuous) 프로세스 관리(stop/restart/status)
+- [ ] 로그 채널 분리(cmd vs stream)
 
 ---
 
 ## 📄 License
-MIT (또는 프로젝트 정책에 맞게 변경)
+MIT
