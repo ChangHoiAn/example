@@ -17,7 +17,7 @@ PC(Qt App + Linux Kernel Driver) ↔ Black Pill(TinyUSB: Vendor + MSC) ↔ Raspb
 PC(Terminal) ↔ Black Pill(CDC↔UART Bridge) ↔ Raspberry Pi(agetty) ↔ Shell(복구)
 
 > 핵심: **Vendor 256B 명령 패킷을 커널 드라이버가 `/dev/custom_usb_*`로 노출**해서 Qt/daemon은 파일 I/O(read/write/poll)처럼 다룹니다.  
-> MSC는 “파일 교환”이 아니라 **256B Vendor 패킷 저장/회수(Packet Store)** 용도로 씁니다.
+> MSC는 **256B Vendor 패킷 저장/회수(Packet Store)** 용도로 씁니다.
 
 ---
 
