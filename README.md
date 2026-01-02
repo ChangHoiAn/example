@@ -105,7 +105,7 @@ flowchart TB
   RPI_REQ["RPi Request<br/>FETCH stored packets"] --> MCU_TX["USB Vendor TX<br/>send stored packets"]
   SDSTORE --> MCU_TX
   META --> MCU_TX
-  MCU_TX -->|USB Vendor IN (256B)| KRPI
+  MCU_TX -->|USB Vendor IN 256B| KRPI
 
   class QT,KPC pc;
   class VEN_RX,MCU_TX,MCU_Group mcu;
