@@ -78,41 +78,39 @@ flowchart TB
   subgraph PC_Phase ["Phase A: PC에서 패킷 적재"]
     direction TB
     QT["Qt App<br/>Command Builder"]
-    K_PC["Linux Kernel Driver<br/>/dev/custom_usb_pc"]
-    QT -->|write 256B| K_PC
-    K_PC -->|USB Vendor OUT : URB| FW_VEN
+    KPC["Linux Kernel Driver<br/>/dev/custom_usb_pc"]
+    QT -->|write 256B packet| KPC
   end
 
   subgraph MCU_Group ["Black Pill"]
     direction TB
-    FW_VEN["vendor.c<br/>tud_vendor_rx_cb<br/>256B reassemble"]
-    SD["SD Card 512B block<br/>SD_Write_DMA_Async"]
-    INFO["info block<br/>vendor_info_update<br/>cmd_len=stored count"]
-    FW_VEN -->|store 256B into 1 block| SD
-    FW_VEN -->|update metadata| INFO
+    VEN_RX["USB Vendor RX<br/>256B packet assemble"]
+    SDSTORE["SD Packet Store<br/>store packets"]
+    META["Packet Count / Meta"]
+    VEN_RX -->|save 256B packet| SDSTORE
+    VEN_RX -->|update count| META
   end
 
-  subgraph RPI_Phase ["Phase B: RPi에서 실행 : Fetch & Execute"]
+  subgraph RPI_Phase ["Phase B: RPi에서 실행 (FETCH & EXECUTE)"]
     direction TB
     KRPI["Linux Kernel Driver<br/>/dev/custom_usb_rpi"]
-    DAEMON["daemon<br/>Parser + Executor : S/D/C"]
-    ROS2["ROS2"]
-    KRPI -->|read : 256B| DAEMON
+    DAEMON["daemon<br/>Parse + Execute (S/D/C)"]
+    ROS2["ROS2 / System Commands"]
+    KRPI -->|read 256B packet| DAEMON
     DAEMON --> ROS2
   end
 
-  RPI_CMD["RPi Trigger<br/>request send"] -->|call/trigger ven_send| MCU_SEND["ven_send()<br/>SD_Read_DMA_Async + tud_vendor_write"]
+  KPC -->|USB Vendor OUT (STORE)| VEN_RX
 
-  SD --> MCU_SEND
-  INFO --> MCU_SEND
-  MCU_SEND -->|USB Vendor IN 256B| KRPI
+  RPI_REQ["RPi Request<br/>FETCH stored packets"] --> MCU_TX["USB Vendor TX<br/>send stored packets"]
+  SDSTORE --> MCU_TX
+  META --> MCU_TX
+  MCU_TX -->|USB Vendor IN (256B)| KRPI
 
-  MSC_OPT["MSC (optional)<br/>inspect/backup only"] -.-> SD
-
-  class QT,K_PC pc;
-  class FW_VEN,MCU_SEND,MCU_Group mcu;
+  class QT,KPC pc;
+  class VEN_RX,MCU_TX,MCU_Group mcu;
   class KRPI,DAEMON,ROS2 rpi;
-  class SD,INFO sd;
+  class SDSTORE,META sd;
   class PC_Phase,RPI_Phase usb;
 ```
 
