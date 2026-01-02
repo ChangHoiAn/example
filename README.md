@@ -10,7 +10,7 @@
 
 ## ✨ 한 줄 요약
 
-**MAIN**
+**MAIN Vendor + MSC**
 
 **PC(QT + Linux Kernel Driver) ↔ Black Pill(Tiny USB Composite: Vendor + MSC) ↔ Raspberry Pi(TurtleBot, Ubuntu Server) ↔ (Linux Kernel Driver) ↔ daemon** 
 
