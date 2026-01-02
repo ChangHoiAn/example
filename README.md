@@ -24,7 +24,7 @@ PC(Terminal) ↔ Black Pill(CDC↔UART Bridge) ↔ Raspberry Pi(agetty) ↔ Shel
 ## ✅ Key Features
 
 - **/dev 기반 제어**: libusb 없이 `read/write/poll`로 단순 제어
-- **256B 고정 프레임**: 프레임 경계/검증이 단순
+- **256Byte 고정 프레임**: 프레임 경계/검증이 단순
 - **Store-and-Forward**: PC에서 미리 패킷을 적재 → 케이블을 RPi로 옮긴 뒤 실행
 - **SD Packet Store**: Vendor로 받은 256Byte를 SD에 저장(블록 512Byte 단위 기록)
 - **MSC(옵션)**: 저장된 내용을 파일/블록 단위로 확인·백업하고 싶을 때만 mount
