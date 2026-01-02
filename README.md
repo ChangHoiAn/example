@@ -91,7 +91,7 @@ flowchart TB
     VEN_RX -->|update count| META
   end
 
-  subgraph RPI_Phase ["Phase B: RPi에서 실행 FETCH & EXECUTE"]
+  subgraph RPI_Phase ["Phase B: RPi에서 실행"]
     direction TB
     KRPI["Linux Kernel Driver<br/>/dev/custom_usb_rpi"]
     DAEMON["daemon<br/>Parse + Execute S/D/C"]
