@@ -12,11 +12,11 @@
 
 **MAIN Vendor + MSC**
 
-**PC(QT + Linux Kernel Driver) ↔ Black Pill(Tiny USB Composite: Vendor + MSC) ↔ Raspberry Pi(TurtleBot, Ubuntu Server) ↔ (Linux Kernel Driver) ↔ daemon** 
+PC(QT + Linux Kernel Driver) ↔ Black Pill(Tiny USB Composite: Vendor + MSC) ↔ Raspberry Pi(TurtleBot, Ubuntu Server) ↔ (Linux Kernel Driver) ↔ daemon
 
 **Recovery: UART(Serial Console)**
 
-**PC(QT + Linux Kernel Driver) ↔ Black Pill(CDC UART) ↔ Raspberry Pi(TurtleBot, Ubuntu Server) ↔ Shell(agetty)**
+PC(QT + Linux Kernel Driver) ↔ Black Pill(CDC UART) ↔ Raspberry Pi(TurtleBot, Ubuntu Server) ↔ Shell(agetty)
 
 구조로 **명령 전달 / 파일 교환 / 네트워크 장애 대비 UART 긴급 루트**를 제공하는 프로젝트입니다.
 
