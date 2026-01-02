@@ -206,27 +206,39 @@ flowchart TB
 
 ```mermaid
 sequenceDiagram
-  actor User
-  participant Qt as PC(Qt)
-  participant KPC as PC Kernel Driver
-  participant STM32 as Black Pill (vendor.c + SD)
-  participant KRPI as RPi Kernel Driver
-  participant Daemon as RPi daemon
-
-  User->>Qt: Build/queue commands
-  Qt->>KPC: write(256Byte)
-  KPC->>STM32: Vendor OUT (URB)
-  STM32->>STM32: reassemble → SD_Write_DMA_Async(512Byte block)
-  STM32->>STM32: vendor_info_update(stored count)
-
-  Note over User,STM32: USB 호스트를 PC → RPi로 전환(케이블/연결 변경)
-
-  Daemon->>KRPI: request/trigger send (implementation-defined)
-  KRPI->>STM32: Vendor control / trigger
-  STM32->>STM32: ven_send(): read info + packets from SD
-  STM32-->>KRPI: Vendor IN (256Byte frames)
-  KRPI-->>Daemon: read(256Byte)
-  Daemon->>Daemon: parse S/D/C + exec
+	actor User
+	participant Qt
+	participant PC Driver
+	participant STM32
+	participant Robot Driver
+	participant Daemon
+	
+	User -->> STM32: Connect to User PC
+	STM32 ->> PC Driver: USB descriptor
+	Note over PC Driver, STM32: MSC+Vendor
+	PC Driver ->> Qt: Connected
+	User ->> Qt: Write command
+	Qt ->> Qt: Compile
+	Qt ->> PC Driver: Write Struct
+	PC Driver ->> STM32: Send Struct
+	Note over PC Driver, STM32: Vendor
+	STM32 ->> STM32: Save Struct
+	
+	User -->> STM32: Disconnect from User PC
+	User -->> STM32: Connect to Robot
+	
+	STM32 ->> Robot Driver: USB descriptor
+	Note over Robot Driver, STM32: MSC+Vendor
+	Robot Driver ->> Daemon: Connected
+	Daemon ->> Robot Driver: Read Struct
+	
+	User -->> STM32: Click Button
+	STM32 ->> Robot Driver: Send Struct
+	Note over Robot Driver, STM32: Vendor
+	Robot Driver ->> Daemon: Read Struct
+	Daemon ->> Daemon: Exacute Commend
+	Daemon ->> STM32: Save Log
+	Note over Daemon, STM32: MSC	
 ```
 
 ---
