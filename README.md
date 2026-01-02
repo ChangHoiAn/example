@@ -78,18 +78,18 @@ flowchart TB
   classDef sd fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:black;
   classDef usb fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5,color:black;
 
-  subgraph PC_Phase ["Phase A: PC에서 패킷 적재(Store)"]
+  subgraph PC_Phase ["Phase A: PC에서 패킷 적재"]
     direction TB
     QT["Qt App<br/>Command Builder"]
     K_PC["Linux Kernel Driver<br/>/dev/custom_usb_pc"]
-    QT -->|write(256B)| K_PC
-    K_PC -->|USB Vendor OUT (URB)| FW_VEN
+    QT -->|write 256B| K_PC
+    K_PC -->|USB Vendor OUT : URB| FW_VEN
   end
 
   subgraph MCU_Group ["Black Pill (STM32)"]
     direction TB
     FW_VEN["vendor.c<br/>tud_vendor_rx_cb<br/>256B reassemble"]
-    SD["SD Card (512B block)<br/>SD_Write_DMA_Async"]
+    SD["SD Card 512B block<br/>SD_Write_DMA_Async"]
     INFO["info block<br/>vendor_info_update<br/>cmd_len=stored count"]
     FW_VEN -->|store 256B into 1 block| SD
     FW_VEN -->|update metadata| INFO
