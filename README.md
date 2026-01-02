@@ -85,9 +85,10 @@ flowchart TB
     direction TB
     VEN_RX["USB Vendor RX<br/>256Byte packet assemble"]
     SDSTORE["SD Packet Store<br/>store packets"]
-    META["Packet Count / Meta"]
+    VEN_TX["USB Vendor TX<br/>send stored packets"]
+
     VEN_RX -->|save 256Byte packet| SDSTORE
-    VEN_RX -->|update count| META
+    SDSTORE -->|load stored packets| VEN_TX
   end
 
   subgraph RPI_Phase ["Phase B: RPi에서 실행"]
@@ -100,16 +101,12 @@ flowchart TB
   end
 
   KPC -->|USB Vendor OUT : STORE| VEN_RX
-
-  RPI_REQ["RPi Request<br/>FETCH stored packets"] --> MCU_TX["USB Vendor TX<br/>send stored packets"]
-  SDSTORE --> MCU_TX
-  META --> MCU_TX
-  MCU_TX -->|USB Vendor IN 256Byte| KRPI
+  VEN_TX -->|USB Vendor IN 256Byte| KRPI
 
   class QT,KPC pc;
-  class VEN_RX,MCU_TX,MCU_Group mcu;
+  class VEN_RX,SDSTORE,VEN_TX,MCU_Group mcu;
   class KRPI,DAEMON,ROS2 rpi;
-  class SDSTORE,META sd;
+  class SDSTORE sd;
   class PC_Phase,RPI_Phase usb;
 ```
 
