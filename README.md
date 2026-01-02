@@ -263,6 +263,7 @@ typedef struct {
 
 > 참고: 펌웨어의 **info 블록**은 별도 `venpack_t`로 저장되며,  
 > `magic=0xBEEFCAFE`, `command="info_struct"`, `cmd_len=저장된 패킷 개수` 형태로 관리됩니다.
+> 설계 고민/히스토리: [GitHub Discussion #38 - info_struct 메타 설계](https://github.com/won-jong-wan/USB-Macro/discussions/38)
 
 ---
 
