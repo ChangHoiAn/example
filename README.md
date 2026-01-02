@@ -52,7 +52,7 @@ flowchart LR
     PC  -.-> |MSC mount: write 256B packets| MCU
     RPI -.-> |MSC mount: read 256B packets| MCU
 
-    PC  -.-> |Recovery UART (CDC↔UART)| RPI
+    PC  -.-> |Recovery UART : CDC↔UART| RPI
 
     class PC pc;
     class MCU mcu;
