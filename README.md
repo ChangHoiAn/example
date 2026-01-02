@@ -10,7 +10,14 @@
 
 ## ✨ 한 줄 요약
 
-**PC(QT Kernel Driver) ↔  Vendor + UART(긴급) ↔ Black Pill(Tiny USB Composite: Vendor + MSC) ↔ Vendor + UART(긴급) ↔ Raspberry Pi(TurtleBot, Ubuntu Server) ↔ (Linux Kernel Driver) ↔ daemon**  
+**MAIN**
+
+**PC(QT + Linux Kernel Driver) ↔ Black Pill(Tiny USB Composite: Vendor + MSC) ↔ Raspberry Pi(TurtleBot, Ubuntu Server) ↔ (Linux Kernel Driver) ↔ daemon** 
+
+**Recovery: UART(Serial Console)**
+
+**PC(QT + Linux Kernel Driver) ↔ Black Pill(CDC UART) ↔ Raspberry Pi(TurtleBot, Ubuntu Server) ↔ Shell(agetty)**
+
 구조로 **명령 전달 / 로그·파일 교환 / 네트워크 장애 대비 UART 긴급 루트**를 제공하는 프로젝트입니다.
 
 > 핵심 포인트: **Vendor로 들어온 “256B 명령 패킷”을 커널 드라이버가 읽고/쓰게 만들고**, QT/daemon은 `/dev/*` 디바이스 파일로 간단히 접근합니다.
@@ -59,7 +66,7 @@ flowchart TB
 
     %% 4. Link STM32-RPi
     subgraph Link_RPi [RPi Connection]
-        L_VEN2[**USB Vendor**\n/dev/custom_usb_rpi]
+        L_VEN2[**USB Vendor**\n]
     end
 
     %% 5. RPi
