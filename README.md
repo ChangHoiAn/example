@@ -100,7 +100,7 @@ flowchart TB
     DAEMON --> ROS2
   end
 
-  KPC -->|USB Vendor OUT (STORE)| VEN_RX
+  KPC -->|USB Vendor OUT : STORE| VEN_RX
 
   RPI_REQ["RPi Request<br/>FETCH stored packets"] --> MCU_TX["USB Vendor TX<br/>send stored packets"]
   SDSTORE --> MCU_TX
