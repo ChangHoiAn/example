@@ -49,11 +49,8 @@ flowchart LR
   RPI["Raspberry Pi<br/>Kernel Driver + daemon + ROS2<br/>/dev/custom_usb_rpi"]
 
   PC  --> |Vendor: STORE 256B frames| MCU
-  RPI --> |Vendor: FETCH stored frames (ven_send)| MCU
+  RPI --> |Vendor: FETCH stored frames ven_send| MCU
   MCU --> |Vendor: 256B frames| RPI
-
-  PC  -.-> |MSC mount (optional: inspect/backup)| MCU
-  RPI -.-> |MSC mount (optional: inspect/backup)| MCU
 
   PC  -.-> |Recovery: MCU switches to CDC| MCU
   MCU -.-> |CDC↔UART bridge| RPI
